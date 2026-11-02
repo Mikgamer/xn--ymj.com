@@ -1,22 +1,29 @@
 var img = document.getElementById('img');
 
-// Give each layer thickness: stack darker copies behind the front face
-var THICKNESS = 14; // px, one slice per px
+// Give each layer thickness: grey copies stacked behind the front face
+var THICKNESS = 14; // px
+var SLICES = 7;
 document.querySelectorAll('#img .layer').forEach(function (layer) {
   var face = layer.querySelector('img');
-  for (var z = THICKNESS; z >= 1; z--) {
-    var s = face.cloneNode();
+  for (var n = SLICES; n >= 1; n--) {
+    var s = document.createElement('img');
+    s.src = 'side.svg';
+    s.draggable = false;
     s.className = 'slice';
-    s.style.setProperty('--z', z);
-    // back face darkest, edges lighten toward the front
-    s.style.setProperty('--b', (0.35 + 0.35 * (1 - z / THICKNESS)).toFixed(2));
-    layer.insertBefore(s, face);
+    s.style.setProperty('--z', (-n * THICKNESS / SLICES) + 'px');
+    face.parentNode.insertBefore(s, face);
   }
 });
 
 // One-way: once clicked, it stays open
 img.addEventListener('click', function () {
   img.classList.add('click');
+  // drop the faded side layers so the browser stops drawing them
+  setTimeout(function () {
+    document.querySelectorAll('#img .layer:not(.mid)').forEach(function (l) {
+      l.remove();
+    });
+  }, 1100);
 }, { once: true });
 
 // 3D tilt that follows the pointer, plus a slow idle sway
@@ -32,8 +39,10 @@ if (!matchMedia('(prefers-reduced-motion: reduce)').matches) {
     cx += (tx - cx) * 0.06;
     cy += (ty - cy) * 0.06;
     var s = (t || 0) / 1000;
-    img.style.setProperty('--ry', (cx * 20 + Math.sin(s * 0.5) * 6).toFixed(2) + 'deg');
-    img.style.setProperty('--rx', (-cy * 20 + Math.sin(s * 0.35) * 4).toFixed(2) + 'deg');
+    var ry = cx * 20 + Math.sin(s * 0.5) * 6;
+    var rx = -cy * 20 + Math.sin(s * 0.35) * 4;
+    // set transform directly (no inherited CSS variables = no restyle of children)
+    img.style.transform = 'rotateX(' + rx.toFixed(2) + 'deg) rotateY(' + ry.toFixed(2) + 'deg)';
     requestAnimationFrame(loop);
   })();
 }

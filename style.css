@@ -1,8 +1,3 @@
-/* Float: --fx/--fy run between -1 and 1, --amp scales them (0 until opened) */
-@property --fx  { syntax: '<number>'; inherits: false; initial-value: 0; }
-@property --fy  { syntax: '<number>'; inherits: false; initial-value: 0; }
-@property --amp { syntax: '<length>'; inherits: true;  initial-value: 0px; }
-
 body{
 	background:black;
 	margin:0;padding:0;
@@ -17,25 +12,26 @@ body{
 #img{
 	--step:0px;     /* diagonal offset between layers (original effect) */
 	--depth:0px;    /* depth between layers */
-	--amp:0px;      /* float amplitude */
 	position:relative;
 	height:50vh;
 	aspect-ratio:1;
 	cursor:help;
 	transform-style:preserve-3d;
-	transform:rotateX(var(--rx, 0deg)) rotateY(var(--ry, 0deg));
-	transition:--amp 1.5s ease;
+	/* tilt is set directly by script.js */
 }
 
-.layer{
-	--i:0;          /* 2 = back/top-right ... -2 = front/bottom-left */
-	--turn:0deg;
+.layer, .float{
 	position:absolute;
 	inset:0;
 	display:flex;
 	align-items:center;
 	justify-content:center;
 	transform-style:preserve-3d;
+}
+
+.layer{
+	--i:0;          /* 2 = back/top-right ... -2 = front/bottom-left */
+	--turn:0deg;
 	/* diagonal spread */
 	translate:calc(var(--i) * var(--step)) calc(var(--i) * var(--step) * -1);
 	/* depth + rotation */
@@ -59,15 +55,9 @@ body{
 	transition:opacity 1s;
 }
 
-/* Front face */
-.layer img:not(.slice){
-	filter:drop-shadow(1px 1px 4px black);
-}
-
-/* Extrusion slices (added by script.js) give each layer its thickness */
+/* Extrusion slices (added by script.js, pre-shaded grey SVG, no filters) */
 .layer img.slice{
-	transform:translateZ(calc(var(--z) * -1px));
-	filter:brightness(var(--b));
+	transform:translateZ(var(--z));
 }
 
 /* Text is glued to the middle layer's front face, so it moves with it */
@@ -100,9 +90,7 @@ body{
 #img.click{
 	--step:50px;
 	--depth:40px;
-	--amp:1.2vh;
 	cursor:default;
-	transition:--amp 2s ease 1.2s;   /* float eases in once the turn is done */
 }
 #img.click .layer{
 	transition:translate 1s, transform 1s;
@@ -112,15 +100,29 @@ body{
 #img.click .mid{
 	--turn:48deg;
 	transition:transform 1s .3s;
-	/* Soft infinity (figure-8): y at twice the frequency of x,
-	   a quarter cycle out of phase */
-	translate:calc(var(--fx) * var(--amp)) calc(var(--fy) * var(--amp) * .5);
-	animation:
-		float-x 4s cubic-bezier(.37,0,.63,1) infinite alternate,
-		float-y 2s cubic-bezier(.37,0,.63,1) -1s infinite alternate;
 }
-@keyframes float-x{ from{ --fx:-1; } to{ --fx:1; } }
-@keyframes float-y{ from{ --fy:-1; } to{ --fy:1; } }
+
+/* Soft infinity (figure-8) once opened: x on .mid, y on .float at twice the
+   frequency. Both start from the centre and only animate `translate`,
+   so the browser can run them on the GPU. */
+#img.click .mid{
+	animation:float-x 8s linear 1.3s infinite;
+}
+#img.click .float{
+	animation:float-y 4s linear 1.3s infinite;
+}
+@keyframes float-x{
+	0%  { translate:0 0;       animation-timing-function:cubic-bezier(.61,1,.88,1); }
+	25% { translate:1.2vh 0;   animation-timing-function:cubic-bezier(.37,0,.63,1); }
+	75% { translate:-1.2vh 0;  animation-timing-function:cubic-bezier(.12,0,.39,0); }
+	100%{ translate:0 0; }
+}
+@keyframes float-y{
+	0%  { translate:0 0;       animation-timing-function:cubic-bezier(.61,1,.88,1); }
+	25% { translate:0 .6vh;    animation-timing-function:cubic-bezier(.37,0,.63,1); }
+	75% { translate:0 -.6vh;   animation-timing-function:cubic-bezier(.12,0,.39,0); }
+	100%{ translate:0 0; }
+}
 
 #img.click .mid a{
 	pointer-events:all;
@@ -130,5 +132,5 @@ body{
 }
 
 @media (prefers-reduced-motion: reduce){
-	#img.click .mid{ animation:none; }
+	#img.click .mid, #img.click .float{ animation:none; }
 }
