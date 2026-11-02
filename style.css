@@ -6,206 +6,39 @@ body{
 	display:flex;
 	align-items:center;
 	justify-content:center;
-	perspective:1200px;
-	transition:background-color 1.6s ease;   /* exit transition (script.js BG_MS) */
+	transition:background-color 1.6s ease;   /* exit transition (main.js BG_MS) */
 }
 
 /* Exit: background shifts while the ⵍ breaks apart */
 body.leaving{ background-color:rgb(23,23,23); }
-body.leaving #img{ pointer-events:none; }
-#img.fadeout{ opacity:0; transition:opacity .6s ease; }   /* fallback without three.js */
 
-#img{
-	--step:0px;     /* diagonal offset between layers (original effect) */
-	--depth:0px;    /* depth between layers */
-	--thick:4.5vh;  /* full thickness of a layer */
-	--k:0;          /* 0 = flat, 1 = full thickness */
-	--solid:0;      /* opacity of the solid face */
-	position:relative;
-	height:50vh;
-	aspect-ratio:1;
-	cursor:help;
-	transform-style:preserve-3d;
-	/* fixed tilt at rest (same as the sway's start, so it continues seamlessly) */
-	transform:rotateX(6deg) rotateY(-12deg);
-}
-
-.layer{
-	position:absolute;
-	inset:0;
-	display:flex;
-	align-items:center;
-	justify-content:center;
-	transform-style:preserve-3d;
-}
-
-.layer{
-	--i:0;          /* 1 = back/top-right, -1 = front/bottom-left */
-	--turn:0deg;
-	/* diagonal spread */
-	translate:calc(var(--i) * var(--step)) calc(var(--i) * var(--step) * -1);
-	/* depth + rotation */
-	transform:translateZ(calc(var(--i) * var(--depth) * -1)) rotate(var(--turn));
-	/* closing: collapse depth first, then slide back */
-	transition:
-		translate .5s ease .4s,
-		transform .5s ease;
-}
-
-.layer.back { --i:1; }
-.layer.front{ --i:-1; }
-
-/* The middle ⵍ is solid and thick from the start */
-.layer.mid{
-	--k:1;
-	--solid:1;
-}
-
-.layer img{
-	position:absolute;
-	inset:0;
-	width:100%;
-	height:100%;
-}
-
-/* Flat face: opaque at rest, see-through while fanning out */
-.layer img.face{
-	transition:opacity .3s ease .4s;
-}
-
-/* Opaque copy of the face, fades in with the thickness (added by script.js) */
-.layer img.solid{
-	opacity:var(--solid);
-	transition:opacity .4s ease;
-}
-
-/* Face, solid copy and text in one flat plane, so 3D sorting treats them
-   as a single surface (wrapper added by script.js) */
-.facegroup{
-	position:absolute;
-	inset:0;
-	display:flex;
-	align-items:center;
-	justify-content:center;
-	/* explicit 3D transform so Firefox depth-sorts it with the slices */
-	transform:translateZ(.1px);
-}
-
-/* Thickness: grey copies stacked behind the face (added by script.js).
-   --f is each slice's position (0..1] through the thickness. */
-.layer img.slice{
-	opacity:var(--solid);
-	transform:translateZ(calc(var(--f) * var(--thick) * var(--k) * -1));
-	transition:transform .5s ease, opacity .4s ease;
-}
-
-/* Text is glued to the middle layer's front face, so it moves with it */
-.mid a{
-	position:relative;
+/* Plain glyph, only shown if the 3D version hasn't started after 2s */
+#fallback{
 	display:block;
-	transform:rotate(-48deg);
-	transition:opacity 1s;
-	color:black;
-	text-decoration:none;
-	font-size:5vh;
-	font-family:monospace;
+	height:50vh;
 	opacity:0;
-	user-select:none;
-	pointer-events:none;
+	animation:show 0s 2s forwards;
 }
+@keyframes show{ to{ opacity:1; } }
 
-/* Hover (class set by script.js so each step always finishes)
-   step 1: fan out diagonally, flat and see-through (like the original)
-   step 2: gain thickness + opacity, spread in depth */
-#img.hover{
-	--step:15px;
-	--depth:70px;
-	--k:1;
-	--solid:1;
-}
-#img.hover .layer{
-	transition:
-		translate .5s ease,
-		transform .7s cubic-bezier(.2,.8,.2,1) .45s;
-}
-#img.hover img.face{
-	opacity:.7;
-	transition:opacity .3s ease;
-}
-#img.hover img.solid{
-	transition:opacity .5s ease .45s;
-}
-#img.hover img.slice{
-	transition:
-		transform .7s cubic-bezier(.2,.8,.2,1) .45s,
-		opacity .3s ease .45s;
-}
-
-/* Click (one-way): front and back slide off and fade, middle turns, text appears */
-#img.click{
-	--step:100px;
-	--depth:70px;
-	--k:1;
-	--solid:1;
-	cursor:pointer;
-	/* everything moves only once opened */
-	animation:sway 14s ease-in-out 1.3s infinite alternate;
-}
-@keyframes sway{
-	from{ transform:rotateX(6deg) rotateY(-12deg); }
-	to  { transform:rotateX(-6deg) rotateY(12deg); }
-}
-
-#img.click .layer{
-	transition:translate 1s, transform 1s;
-}
-#img.click img.slice{
-	transition:transform .6s ease, opacity 1s;
-}
-#img.click .back img,
-#img.click .front img{
-	opacity:0;
-	transition:opacity 1s;
-}
-
-#img.click .mid{
-	--turn:48deg;
-	transition:transform 1s .3s;
-}
-
-#img.click .mid a{
-	pointer-events:all;
-	cursor:pointer;
-	transition-delay:.3s;
-	opacity:1;
-}
-
-@media (prefers-reduced-motion: reduce){
-	#img.click{ animation:none; }
-}
-
-/* Particle canvas (script.js) — on top, but never catches clicks */
-#dust{
-	position:fixed;
-	inset:0;
-	width:100%;
-	height:100%;
-	pointer-events:none;
-	z-index:1;
-}
-
-/* Screen-position markers on each face (script.js) */
-.anchor{
+/* Once the 3D scene runs, the link is only there for keyboard users */
+body.gl #link{
 	position:absolute;
 	width:1px;
 	height:1px;
-	pointer-events:none;
+	overflow:hidden;
+	clip-path:inset(50%);
+	white-space:nowrap;
 }
+body.gl #fallback{ display:none; }
 
-/* three.js shards during the exit (transition.js) */
-#shatter{
+/* 3D scene (three.js) and the dust on top of it */
+#scene, #dust{
 	position:fixed;
 	inset:0;
+	width:100%;
+	height:100%;
 	pointer-events:none;
-	z-index:1;
 }
+#dust{ z-index:1; }
+#scene.fadeout{ opacity:0; transition:opacity .6s ease; }   /* reduced-motion exit */

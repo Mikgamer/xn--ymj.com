@@ -7,14 +7,11 @@
 	<link rel="stylesheet" type="text/css" href="style.css">
 </head>
 <body>
-	<div id="img">
-		<div class="layer back"><img src="ⵍ.svg" draggable="false"></div>
-		<div class="layer mid">
-			<img src="ⵍ.svg" draggable="false">
-			<a href="http://mikgamer.fr">mikgamer.fr</a>
-		</div>
-		<div class="layer front"><img src="ⵍ.svg" draggable="false"></div>
-	</div>
-	<script src="script.js"></script>
+	<!-- The ⵍ is drawn in 3D by main.js (three.js). This link stays for keyboard
+	     users, and shows the plain glyph if the 3D version can't load. -->
+	<a id="link" href="http://mikgamer.fr" aria-label="ⵍ — mikgamer.fr">
+		<img id="fallback" src="ⵍ.svg" alt="ⵍ" draggable="false">
+	</a>
+	<script type="module" src="main.js"></script>
 </body>
 </html>
