@@ -115,7 +115,7 @@ dot.width = dot.height = DOT;
 var MAX = 300;
 var RATE_HOVER = 40;   // particles per second while hovered (all layers)
 var RATE_OPEN = 60;    // particles per second once opened
-var VACUUM = 60000;    // pull strength of the cursor
+var VACUUM = 30000;    // pull strength of the cursor
 var SWALLOW = 35;      // px: particles start fading out inside this radius of the cursor
 var GEO_MS = 100;      // how often to re-measure where the faces are
 var parts = [], acc = 0, emitting = false, running = false, last = 0;
@@ -154,7 +154,7 @@ function spawn(g) {
     vx: dx / d * speed + Math.cos(a) * 10,
     vy: dy / d * speed + Math.sin(a) * 10 - 12,
     age: 0,
-    life: 1.4 + Math.random() * 1.8,
+    life: 0.9 + Math.random() * 1.1,
     size: 2 + Math.random() * 3,     // px, drawn diameter
     fade: -1, fadeDur: 0             // absorb fade, starts inside the cursor radius
   });
@@ -202,7 +202,7 @@ function frame(t) {
       var f = VACUUM / (md + 60) * dt;                         // stronger when closer
       p.vx += mx / md * f;
       p.vy += my / md * f;
-      if (md < 260) p.age -= dt * 0.6;                         // live long enough to arrive
+      if (md < 260) p.age -= dt * 0.3;                         // live long enough to arrive
     }
     // extra drag inside the radius so they spiral in instead of overshooting
     var d2 = inside ? Math.exp(-5 * dt) : damp;
