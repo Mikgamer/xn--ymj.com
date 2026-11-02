@@ -12,8 +12,9 @@ body{
 #img{
 	--step:0px;     /* diagonal offset between layers (original effect) */
 	--depth:0px;    /* depth between layers */
-	--slice:0px;    /* gap between extrusion slices: 0 = flat, >0 = thick */
-	--solid:0;      /* opacity of the thickness + solid face */
+	--thick:4.5vh;  /* full thickness of a layer */
+	--k:0;          /* 0 = flat, 1 = full thickness */
+	--solid:0;      /* opacity of the solid face */
 	position:relative;
 	height:50vh;
 	aspect-ratio:1;
@@ -39,9 +40,9 @@ body{
 	translate:calc(var(--i) * var(--step)) calc(var(--i) * var(--step) * -1);
 	/* depth + rotation */
 	transform:translateZ(calc(var(--i) * var(--depth) * -1)) rotate(var(--turn));
-	/* leaving hover: collapse depth first, then slide back */
+	/* closing: collapse depth first, then slide back */
 	transition:
-		translate .5s ease .35s,
+		translate .5s ease .4s,
 		transform .5s ease;
 }
 
@@ -57,24 +58,40 @@ body{
 
 /* Flat face: opaque at rest, see-through while fanning out */
 .layer img.face{
-	transition:opacity .3s ease .35s;
+	transition:opacity .3s ease .4s;
 }
 
-/* Solid face (opaque copy on top) + extrusion slices, all added by script.js */
-.layer img.solid,
+/* Opaque copy of the face, fades in with the thickness (added by script.js) */
+.layer img.solid{
+	opacity:var(--solid);
+	transition:opacity .4s ease;
+}
+
+/* Face, solid copy and text in one flat plane, so 3D sorting treats them
+   as a single surface (wrapper added by script.js) */
+.facegroup{
+	position:absolute;
+	inset:0;
+	display:flex;
+	align-items:center;
+	justify-content:center;
+	/* explicit 3D transform so Firefox depth-sorts it with the slices */
+	transform:translateZ(.1px);
+}
+
+/* Thickness: grey copies stacked behind the face (added by script.js).
+   --f is each slice's position (0..1] through the thickness. */
 .layer img.slice{
 	opacity:var(--solid);
-	transition:opacity .4s ease, transform .5s ease;
-}
-.layer img.slice{
-	transform:translateZ(calc(var(--n) * var(--slice) * -1));
+	transform:translateZ(calc(var(--f) * var(--thick) * var(--k) * -1));
+	transition:transform .5s ease, opacity .4s ease;
 }
 
 /* Text is glued to the middle layer's front face, so it moves with it */
 .mid a{
 	position:relative;
 	display:block;
-	transform:translateZ(2px) rotate(-48deg);
+	transform:rotate(-48deg);
 	transition:opacity 1s;
 	color:black;
 	text-decoration:none;
@@ -85,35 +102,38 @@ body{
 	pointer-events:none;
 }
 
-/* Hover, step 1: fan out diagonally, flat and see-through (like the original)
-   Hover, step 2: gain thickness + opacity, spread in depth */
-#img:not(.click):hover{
+/* Hover (class set by script.js so each step always finishes)
+   step 1: fan out diagonally, flat and see-through (like the original)
+   step 2: gain thickness + opacity, spread in depth */
+#img.hover{
 	--step:15px;
 	--depth:70px;
-	--slice:2.5px;
+	--k:1;
 	--solid:1;
 }
-#img:not(.click):hover .layer{
+#img.hover .layer{
 	transition:
 		translate .5s ease,
 		transform .7s cubic-bezier(.2,.8,.2,1) .45s;
 }
-#img:not(.click):hover img.face{
+#img.hover img.face{
 	opacity:.7;
 	transition:opacity .3s ease;
 }
-#img:not(.click):hover img.solid,
-#img:not(.click):hover img.slice{
+#img.hover img.solid{
+	transition:opacity .5s ease .45s;
+}
+#img.hover img.slice{
 	transition:
-		opacity .5s ease .45s,
-		transform .7s cubic-bezier(.2,.8,.2,1) .45s;
+		transform .7s cubic-bezier(.2,.8,.2,1) .45s,
+		opacity .3s ease .45s;
 }
 
 /* Click (one-way): front and back slide off and fade, middle turns, text appears */
 #img.click{
 	--step:100px;
 	--depth:70px;
-	--slice:2.5px;
+	--k:1;
 	--solid:1;
 	cursor:default;
 	/* everything moves only once opened */
@@ -127,10 +147,13 @@ body{
 #img.click .layer{
 	transition:translate 1s, transform 1s;
 }
+#img.click img.slice{
+	transition:transform .6s ease, opacity 1s;
+}
 #img.click .back img,
 #img.click .front img{
 	opacity:0;
-	transition:opacity 1s, transform .5s;
+	transition:opacity 1s;
 }
 
 /* Soft infinity (figure-8): x on .mid, y on .float at twice the frequency.
