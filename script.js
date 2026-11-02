@@ -90,20 +90,37 @@ canvas.id = 'dust';
 document.body.appendChild(canvas);
 var ctx = canvas.getContext('2d');
 
+// 1:1 resolution keeps the canvas cheap; the dots are tiny anyway
 function resize() {
-  var d = Math.min(window.devicePixelRatio || 1, 2);
-  canvas.width = innerWidth * d;
-  canvas.height = innerHeight * d;
-  ctx.setTransform(d, 0, 0, d, 0, 0);
+  canvas.width = innerWidth;
+  canvas.height = innerHeight;
 }
 resize();
 addEventListener('resize', resize);
 
-var MAX = 400;
-var RATE_HOVER = 45;   // particles per second while hovered (all layers)
-var RATE_OPEN = 70;    // particles per second once opened
+// one pre-drawn soft dot, stamped for every particle (much cheaper than arcs)
+var DOT = 16;
+var dot = document.createElement('canvas');
+dot.width = dot.height = DOT;
+(function () {
+  var c = dot.getContext('2d');
+  var g = c.createRadialGradient(DOT / 2, DOT / 2, 0, DOT / 2, DOT / 2, DOT / 2);
+  g.addColorStop(0, 'rgba(255,255,255,1)');
+  g.addColorStop(0.45, 'rgba(255,255,255,1)');
+  g.addColorStop(1, 'rgba(255,255,255,0)');
+  c.fillStyle = g;
+  c.fillRect(0, 0, DOT, DOT);
+})();
+
+var MAX = 300;
+var RATE_HOVER = 40;   // particles per second while hovered (all layers)
+var RATE_OPEN = 60;    // particles per second once opened
 var VACUUM = 60000;    // pull strength of the cursor
+var SWALLOW = 35;      // px: particles vanish inside this radius of the cursor
+var GEO_MS = 100;      // how often to re-measure where the faces are
 var parts = [], acc = 0, emitting = false, running = false, last = 0;
+var geo = [], geoAt = -1e9;
+var dirty = null;      // area drawn last frame, the only part we clear
 var mouse = { x: 0, y: 0, in: false };
 
 addEventListener('pointermove', function (e) {
@@ -138,7 +155,7 @@ function spawn(g) {
     vy: dy / d * speed + Math.sin(a) * 10 - 12,
     age: 0,
     life: 1.4 + Math.random() * 1.8,
-    size: 0.6 + Math.random() * 1.6
+    size: 2 + Math.random() * 3      // px, drawn diameter
   });
 }
 
@@ -147,15 +164,17 @@ function frame(t) {
   last = t;
   var clicked = img.classList.contains('click');
 
-  // emit
+  // emit (face positions are only re-measured every GEO_MS)
   if (emitting) {
     acc += dt * (clicked ? RATE_OPEN : RATE_HOVER);
     if (acc >= 1) {
-      var sources = layers.filter(function (l) {
-        return l.el.isConnected && (!clicked || l.el.classList.contains('mid'));
-      });
-      if (sources.length) {
-        var geo = sources.map(project);
+      if (t - geoAt > GEO_MS) {
+        geoAt = t;
+        geo = layers.filter(function (l) {
+          return l.el.isConnected && (!clicked || l.el.classList.contains('mid'));
+        }).map(project);
+      }
+      if (geo.length) {
         while (acc >= 1) { acc--; spawn(geo[(Math.random() * geo.length) | 0]); }
       } else {
         acc = 0;
@@ -163,15 +182,16 @@ function frame(t) {
     }
   }
 
-  // move
+  // move (dead particles are dropped in one pass)
   var vacuum = clicked && mouse.in;
   var damp = Math.exp(-1.2 * dt);
-  for (var i = parts.length - 1; i >= 0; i--) {
+  var n = 0;
+  for (var i = 0; i < parts.length; i++) {
     var p = parts[i];
     if (vacuum) {
       var mx = mouse.x - p.x, my = mouse.y - p.y, md = Math.hypot(mx, my);
-      if (md < 6) { parts.splice(i, 1); continue; }          // swallowed
-      var f = VACUUM / (md + 60) * dt;                        // stronger when closer
+      if (md < SWALLOW) continue;                              // swallowed
+      var f = VACUUM / (md + 60) * dt;                         // stronger when closer
       p.vx += mx / md * f;
       p.vy += my / md * f;
       if (md < 260) p.age -= dt * 0.6;                         // live long enough to arrive
@@ -179,22 +199,25 @@ function frame(t) {
     p.vx *= damp; p.vy *= damp;
     p.x += p.vx * dt; p.y += p.vy * dt;
     p.age += dt;
-    if (p.age >= p.life) parts.splice(i, 1);
+    if (p.age < p.life) parts[n++] = p;
   }
+  parts.length = n;
 
-  // draw
-  ctx.clearRect(0, 0, innerWidth, innerHeight);
-  ctx.fillStyle = '#fff';
-  for (var j = 0; j < parts.length; j++) {
+  // draw: clear only what was drawn last frame
+  if (dirty) ctx.clearRect(dirty[0], dirty[1], dirty[2] - dirty[0], dirty[3] - dirty[1]);
+  var x0 = 1e9, y0 = 1e9, x1 = -1e9, y1 = -1e9;
+  for (var j = 0; j < n; j++) {
     var q = parts[j], k = 1 - q.age / q.life;
+    var s = q.size, h = s / 2;
     ctx.globalAlpha = Math.max(0, Math.min(1, k * 1.5)) * 0.9;
-    ctx.beginPath();
-    ctx.arc(q.x, q.y, q.size, 0, Math.PI * 2);
-    ctx.fill();
+    ctx.drawImage(dot, q.x - h, q.y - h, s, s);
+    if (q.x < x0) x0 = q.x; if (q.x > x1) x1 = q.x;
+    if (q.y < y0) y0 = q.y; if (q.y > y1) y1 = q.y;
   }
   ctx.globalAlpha = 1;
+  dirty = n ? [Math.floor(x0 - 4), Math.floor(y0 - 4), Math.ceil(x1 + 4), Math.ceil(y1 + 4)] : null;
 
-  if (emitting || parts.length) requestAnimationFrame(frame);
+  if (emitting || n) requestAnimationFrame(frame);
   else running = false;
 }
 
