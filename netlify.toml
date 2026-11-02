@@ -1,5 +1,5 @@
-# Static site: no build step, publish the repo root as-is.
-# (Overrides the "yarn build" / "build" settings from the Netlify app.)
+# Static site: nothing to compile, the build step just copies the site files
+# into build/ (the publish directory the Netlify app also expects).
 [build]
-  command = "echo 'static site, nothing to build'"
-  publish = "."
+  command = "mkdir -p build && cp *.html *.js *.css *.svg build/"
+  publish = "build"
