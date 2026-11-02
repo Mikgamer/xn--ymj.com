@@ -1,4 +1,4 @@
-/* Float: --fx/--fy run between -1 and 1, --amp scales them (0 at rest) */
+/* Float: --fx/--fy run between -1 and 1, --amp scales them (0 until opened) */
 @property --fx  { syntax: '<number>'; inherits: false; initial-value: 0; }
 @property --fy  { syntax: '<number>'; inherits: false; initial-value: 0; }
 @property --amp { syntax: '<length>'; inherits: true;  initial-value: 0px; }
@@ -16,7 +16,7 @@ body{
 
 #img{
 	--step:0px;     /* diagonal offset between layers (original effect) */
-	--depth:0px;    /* depth between layers (thickness) */
+	--depth:0px;    /* depth between layers */
 	--amp:0px;      /* float amplitude */
 	position:relative;
 	height:50vh;
@@ -24,7 +24,7 @@ body{
 	cursor:help;
 	transform-style:preserve-3d;
 	transform:rotateX(var(--rx, 0deg)) rotateY(var(--ry, 0deg));
-	transition:--amp 1s ease;
+	transition:--amp 1.5s ease;
 }
 
 .layer{
@@ -35,11 +35,12 @@ body{
 	display:flex;
 	align-items:center;
 	justify-content:center;
+	transform-style:preserve-3d;
 	/* diagonal spread */
 	translate:calc(var(--i) * var(--step)) calc(var(--i) * var(--step) * -1);
-	/* thickness + rotation */
+	/* depth + rotation */
 	transform:translateZ(calc(var(--i) * var(--depth) * -1)) rotate(var(--turn));
-	/* leaving hover: collapse thickness first, then slide back */
+	/* leaving hover: collapse depth first, then slide back */
 	transition:
 		translate .5s ease .35s,
 		transform .5s ease;
@@ -55,30 +56,21 @@ body{
 	inset:0;
 	width:100%;
 	height:100%;
-	filter:drop-shadow(1px 1px 4px black);
 	transition:opacity 1s;
 }
 
-/* Side layers: soft infinity (figure-8) float.
-   y runs at twice the frequency of x, a quarter cycle out of phase. */
-.layer:not(.mid) img{
-	--k:1;
-	translate:
-		calc(var(--fx) * var(--amp) * var(--k))
-		calc(var(--fy) * var(--amp) * var(--k) * .5);
-	animation:
-		float-x 4s cubic-bezier(.37,0,.63,1) var(--d) infinite alternate,
-		float-y 2s cubic-bezier(.37,0,.63,1) calc(var(--d) - 1s) infinite alternate;
+/* Front face */
+.layer img:not(.slice){
+	filter:drop-shadow(1px 1px 4px black);
 }
-@keyframes float-x{ from{ --fx:-1; } to{ --fx:1; } }
-@keyframes float-y{ from{ --fy:-1; } to{ --fy:1; } }
 
-.layer:nth-child(1) img{ --d:-1.6s; --k:1.6; }
-.layer:nth-child(2) img{ --d:-.8s; }
-.layer:nth-child(4) img{ --d:-2.4s; }
-.layer:nth-child(5) img{ --d:-3.2s; --k:1.6; }
+/* Extrusion slices (added by script.js) give each layer its thickness */
+.layer img.slice{
+	transform:translateZ(calc(var(--z) * -1px));
+	filter:brightness(var(--b));
+}
 
-/* Text is glued to the middle layer, so it moves with it */
+/* Text is glued to the middle layer's front face, so it moves with it */
 .mid a{
 	position:relative;
 	display:block;
@@ -93,24 +85,24 @@ body{
 	pointer-events:none;
 }
 
-/* Hover: fan out diagonally (like the original), then expand into thickness */
+/* Hover: fan out diagonally (like the original), then spread in depth */
 #img:not(.click):hover{
 	--step:10px;
 	--depth:40px;
-	--amp:1vh;
 }
 #img:not(.click):hover .layer{
 	transition:
 		translate .5s ease,
 		transform .6s cubic-bezier(.2,.8,.2,1) .35s;
 }
-#img:not(.click):hover img{ opacity:.7; }
 
 /* Click (one-way): side layers slide off and fade, middle turns, text appears */
 #img.click{
 	--step:50px;
 	--depth:40px;
+	--amp:1.2vh;
 	cursor:default;
+	transition:--amp 2s ease 1.2s;   /* float eases in once the turn is done */
 }
 #img.click .layer{
 	transition:translate 1s, transform 1s;
@@ -119,8 +111,17 @@ body{
 
 #img.click .mid{
 	--turn:48deg;
-	transition:translate 1s, transform 1s .3s;
+	transition:transform 1s .3s;
+	/* Soft infinity (figure-8): y at twice the frequency of x,
+	   a quarter cycle out of phase */
+	translate:calc(var(--fx) * var(--amp)) calc(var(--fy) * var(--amp) * .5);
+	animation:
+		float-x 4s cubic-bezier(.37,0,.63,1) infinite alternate,
+		float-y 2s cubic-bezier(.37,0,.63,1) -1s infinite alternate;
 }
+@keyframes float-x{ from{ --fx:-1; } to{ --fx:1; } }
+@keyframes float-y{ from{ --fy:-1; } to{ --fy:1; } }
+
 #img.click .mid a{
 	pointer-events:all;
 	cursor:pointer;
@@ -129,5 +130,5 @@ body{
 }
 
 @media (prefers-reduced-motion: reduce){
-	.layer img{ animation:none !important; }
+	#img.click .mid{ animation:none; }
 }

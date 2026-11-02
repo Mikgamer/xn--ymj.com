@@ -1,5 +1,19 @@
 var img = document.getElementById('img');
 
+// Give each layer thickness: stack darker copies behind the front face
+var THICKNESS = 14; // px, one slice per px
+document.querySelectorAll('#img .layer').forEach(function (layer) {
+  var face = layer.querySelector('img');
+  for (var z = THICKNESS; z >= 1; z--) {
+    var s = face.cloneNode();
+    s.className = 'slice';
+    s.style.setProperty('--z', z);
+    // back face darkest, edges lighten toward the front
+    s.style.setProperty('--b', (0.35 + 0.35 * (1 - z / THICKNESS)).toFixed(2));
+    layer.insertBefore(s, face);
+  }
+});
+
 // One-way: once clicked, it stays open
 img.addEventListener('click', function () {
   img.classList.add('click');
