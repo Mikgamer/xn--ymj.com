@@ -55,6 +55,12 @@ body.leaving #img{ pointer-events:none; }
 .layer.back { --i:1; }
 .layer.front{ --i:-1; }
 
+/* The middle ⵍ is solid and thick from the start */
+.layer.mid{
+	--k:1;
+	--solid:1;
+}
+
 .layer img{
 	position:absolute;
 	inset:0;
