@@ -17,13 +17,8 @@ body{
 	aspect-ratio:1;
 	cursor:help;
 	transform-style:preserve-3d;
-	/* slow sway so the depth stays visible */
-	animation:sway 14s ease-in-out infinite alternate;
-}
-
-@keyframes sway{
-	from{ transform:rotateX(6deg) rotateY(-12deg); }
-	to  { transform:rotateX(-6deg) rotateY(12deg); }
+	/* fixed tilt at rest (same as the sway's start, so it continues seamlessly) */
+	transform:rotateX(6deg) rotateY(-12deg);
 }
 
 .layer, .float{
@@ -36,7 +31,7 @@ body{
 }
 
 .layer{
-	--i:0;          /* 2 = back/top-right ... -2 = front/bottom-left */
+	--i:0;          /* 1 = back/top-right, -1 = front/bottom-left */
 	--turn:0deg;
 	/* diagonal spread */
 	translate:calc(var(--i) * var(--step)) calc(var(--i) * var(--step) * -1);
@@ -48,10 +43,8 @@ body{
 		transform .5s ease;
 }
 
-.layer:nth-child(1){ --i:2; }
-.layer:nth-child(2){ --i:1; }
-.layer:nth-child(4){ --i:-1; }
-.layer:nth-child(5){ --i:-2; }
+.layer.back { --i:1; }
+.layer.front{ --i:-1; }
 
 .layer img{
 	position:absolute;
@@ -70,7 +63,7 @@ body{
 .mid a{
 	position:relative;
 	display:block;
-	transform:translateZ(1px) rotate(-48deg);
+	transform:translateZ(2px) rotate(-48deg);
 	transition:opacity 1s;
 	color:black;
 	text-decoration:none;
@@ -83,8 +76,8 @@ body{
 
 /* Hover: fan out diagonally (like the original), then spread in depth */
 #img:not(.click):hover{
-	--step:10px;
-	--depth:40px;
+	--step:15px;
+	--depth:70px;
 }
 #img:not(.click):hover .layer{
 	transition:
@@ -92,26 +85,30 @@ body{
 		transform .6s cubic-bezier(.2,.8,.2,1) .35s;
 }
 
-/* Click (one-way): side layers slide off and fade, middle turns, text appears */
+/* Click (one-way): front and back slide off and fade, middle turns, text appears */
 #img.click{
-	--step:50px;
-	--depth:40px;
+	--step:100px;
+	--depth:70px;
 	cursor:default;
+	/* everything moves only once opened */
+	animation:sway 14s ease-in-out 1.3s infinite alternate;
 }
+@keyframes sway{
+	from{ transform:rotateX(6deg) rotateY(-12deg); }
+	to  { transform:rotateX(-6deg) rotateY(12deg); }
+}
+
 #img.click .layer{
 	transition:translate 1s, transform 1s;
 }
-#img.click .layer:not(.mid) img{ opacity:0; }
+#img.click .back img,
+#img.click .front img{ opacity:0; }
 
+/* Soft infinity (figure-8): x on .mid, y on .float at twice the frequency.
+   Both start from the centre and only animate `translate` (GPU-friendly). */
 #img.click .mid{
 	--turn:48deg;
 	transition:transform 1s .3s;
-}
-
-/* Soft infinity (figure-8) once opened: x on .mid, y on .float at twice the
-   frequency. Both start from the centre and only animate `translate`,
-   so the browser can run them on the GPU. */
-#img.click .mid{
 	animation:float-x 8s linear 1.3s infinite;
 }
 #img.click .float{
@@ -138,5 +135,5 @@ body{
 }
 
 @media (prefers-reduced-motion: reduce){
-	#img, #img.click .mid, #img.click .float{ animation:none; }
+	#img.click, #img.click .mid, #img.click .float{ animation:none; }
 }

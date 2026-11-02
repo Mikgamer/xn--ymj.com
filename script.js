@@ -1,8 +1,8 @@
 var img = document.getElementById('img');
 
 // Give each layer thickness: grey copies stacked behind the front face
-var THICKNESS = 14; // px
-var SLICES = 7;
+var THICKNESS = 30; // px
+var SLICES = 12;
 document.querySelectorAll('#img .layer').forEach(function (layer) {
   var face = layer.querySelector('img');
   for (var n = SLICES; n >= 1; n--) {
@@ -20,7 +20,7 @@ img.addEventListener('click', function () {
   img.classList.add('click');
   // drop the faded side layers so the browser stops drawing them
   setTimeout(function () {
-    document.querySelectorAll('#img .layer:not(.mid)').forEach(function (l) {
+    document.querySelectorAll('#img .back, #img .front').forEach(function (l) {
       l.remove();
     });
   }, 1100);
