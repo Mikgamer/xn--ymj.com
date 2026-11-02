@@ -1,0 +1,5 @@
+# Static site: no build step, publish the repo root as-is.
+# (Overrides the "yarn build" / "build" settings from the Netlify app.)
+[build]
+  command = "echo 'static site, nothing to build'"
+  publish = "."
