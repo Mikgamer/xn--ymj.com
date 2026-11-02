@@ -78,6 +78,7 @@ var P = {
   step: new Param(0),     // diagonal offset between layers (px)
   depth: new Param(0),    // depth between layers (px)
   sideK: new Param(0),    // thickness of the back/front layers, 0..1
+  midK: new Param(0),     // thickness of the middle layer, 0..1 (flat at rest)
   sideOp: new Param(1),   // opacity of the back/front layers
   turn: new Param(0),     // rotation of the middle layer (rad)
   textOp: new Param(0)    // opacity of the text
@@ -183,7 +184,7 @@ function applyLayers() {
     var isMid = L.i === 0;
     // CSS: translate(i*step, -i*step) with y down -> y up here; back = up-right
     L.group.position.set(L.i * step, L.i * step, -L.i * depth - L.i * 0.5);
-    var k = isMid ? 1 : P.sideK.v;
+    var k = isMid ? P.midK.v : P.sideK.v;
     var op = isMid ? 1 : P.sideOp.v;
     L.mesh.scale.set(size, size, Math.max(k, 0.002) * thick);
     L.face.opacity = L.side.opacity = op;
@@ -346,6 +347,7 @@ function step() {
     P.step.to([[15, 0.5, 0, EASE]], now);
     P.sideOp.to([[0.7, 0.3, 0, EASE], [1, 0.5, 0.45, EASE]], now);
     P.sideK.to([[1, 0.7, 0.45, OUT]], now);
+    P.midK.to([[1, 0.7, 0.45, OUT]], now);
     P.depth.to([[70, 0.7, 0.45, OUT]], now);
     dustTimer = setTimeout(function () { setEmitting(true); }, THICK_MS);
     timer = setTimeout(function () { state = 'open'; step(); }, OPEN_MS);
@@ -354,6 +356,7 @@ function step() {
     // collapse depth + thickness first, then slide back
     P.depth.to([[0, 0.5, 0, EASE]], now);
     P.sideK.to([[0, 0.5, 0, EASE]], now);
+    P.midK.to([[0, 0.5, 0, EASE]], now);
     P.sideOp.to([[0.7, 0.4, 0, EASE], [1, 0.3, 0.4, EASE]], now);
     P.step.to([[0, 0.5, 0.4, EASE]], now);
     setEmitting(false);
@@ -371,6 +374,7 @@ function open() {
   P.step.to([[100, 1, 0, EASE]], now);
   P.depth.to([[70, 1, 0, EASE]], now);
   P.sideK.to([[1, 0.6, 0, EASE]], now);
+  P.midK.to([[1, 0.6, 0, EASE]], now);
   P.sideOp.to([[0, 1, 0, EASE]], now);
   P.turn.to([[-48 * Math.PI / 180, 1, 0.3, EASE]], now);
   P.textOp.to([[1, 1, 0.3, EASE]], now);
