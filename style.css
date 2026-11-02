@@ -7,7 +7,13 @@ body{
 	align-items:center;
 	justify-content:center;
 	perspective:1200px;
+	transition:background-color 1.6s ease;   /* exit transition (script.js BG_MS) */
 }
+
+/* Exit: background shifts while the ⵍ breaks apart */
+body.leaving{ background-color:rgb(23,23,23); }
+body.leaving #img{ pointer-events:none; }
+#img.fadeout{ opacity:0; transition:opacity .6s ease; }   /* fallback without three.js */
 
 #img{
 	--step:0px;     /* diagonal offset between layers (original effect) */
@@ -135,7 +141,7 @@ body{
 	--depth:70px;
 	--k:1;
 	--solid:1;
-	cursor:default;
+	cursor:pointer;
 	/* everything moves only once opened */
 	animation:sway 14s ease-in-out 1.3s infinite alternate;
 }
@@ -188,4 +194,12 @@ body{
 	width:1px;
 	height:1px;
 	pointer-events:none;
+}
+
+/* three.js shards during the exit (transition.js) */
+#shatter{
+	position:fixed;
+	inset:0;
+	pointer-events:none;
+	z-index:1;
 }

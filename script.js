@@ -119,6 +119,7 @@ var VACUUM = 30000;    // pull strength of the cursor
 var SWALLOW = 35;      // px: particles start fading out inside this radius of the cursor
 var GEO_MS = 100;      // how often to re-measure where the faces are
 var parts = [], acc = 0, emitting = false, running = false, last = 0;
+var leaving = false;   // exit transition in progress (see the end of this file)
 var geo = [], geoAt = -1e9;
 var dirty = null;      // area drawn last frame, the only part we clear
 var mouse = { x: 0, y: 0, in: false };
@@ -139,15 +140,16 @@ function project(l) {
   return { ox: o.x, oy: o.y, ux: u.x - o.x, uy: u.y - o.y, vx: v.x - o.x, vy: v.y - o.y };
 }
 
-function spawn(g) {
+function spawn(g, boost) {
   if (parts.length >= MAX) return;
+  boost = boost || 1;
   var uv = randomEdgePoint();
   var x = g.ox + g.ux * uv[0] + g.vx * uv[1];
   var y = g.oy + g.uy * uv[0] + g.vy * uv[1];
   // drift away from the glyph's centre, a little upward
   var cx = g.ox + (g.ux + g.vx) / 2, cy = g.oy + (g.uy + g.vy) / 2;
   var dx = x - cx, dy = y - cy, d = Math.hypot(dx, dy) || 1;
-  var speed = 12 + Math.random() * 35;
+  var speed = (12 + Math.random() * 35) * boost;
   var a = Math.random() * Math.PI * 2;
   parts.push({
     x: x, y: y,
@@ -184,7 +186,7 @@ function frame(t) {
   }
 
   // move (dead particles are dropped in one pass)
-  var vacuum = clicked && mouse.in;
+  var vacuum = clicked && mouse.in && !leaving;
   var damp = Math.exp(-1.2 * dt);
   var n = 0;
   for (var i = 0; i < parts.length; i++) {
@@ -291,4 +293,78 @@ img.addEventListener('click', function () {
       l.remove();
     });
   }, 1100);
+  // fetch the exit transition now, so it's ready when it's needed
+  if (!reduceMotion) shatterModule = import('./transition.js').catch(function () { return null; });
+  // the next click on the opened ⵍ (or its link) leaves the site
+  setTimeout(function () { img.addEventListener('click', leave); }, 0);
 }, { once: true });
+
+// ---------------------------------------------------------------------------
+// Exit: the ⵍ breaks into pieces (three.js, transition.js), the background
+// shifts to rgb(23,23,23), and once nothing but the background is left
+// the browser goes to the link.
+// ---------------------------------------------------------------------------
+var shatterModule = null;
+var BG_MS = 1600;      // matches the body background transition in style.css
+
+function leave(e) {
+  // let ctrl/cmd/shift/middle clicks open the link normally
+  if (e.ctrlKey || e.metaKey || e.shiftKey || e.button > 0) return;
+  e.preventDefault();
+  if (leaving) return;
+  leaving = true;
+
+  var mid = document.querySelector('#img .mid');
+  var link = mid.querySelector('a');
+  var href = link.href;
+
+  // stop the dust, burst some off the glyph, and shorten what's left
+  setEmitting(false);
+  var midLayer = layers.filter(function (l) { return l.el === mid; })[0];
+  if (midLayer && !reduceMotion) {
+    var g = project(midLayer);
+    for (var i = 0; i < 90; i++) spawn(g, 4);
+    if (!running) { running = true; last = performance.now(); requestAnimationFrame(frame); }
+  }
+  parts.forEach(function (p) { p.life = Math.min(p.life, p.age + 1.2); });
+
+  document.body.classList.add('leaving');
+  var bgDone = new Promise(function (r) { setTimeout(r, BG_MS); });
+
+  var broken;
+  if (shatterModule) {
+    broken = shatterModule.then(function (mod) {
+      if (!mod) throw new Error('three.js unavailable');
+      return mod.shatter({
+        stage: img,
+        layer: mid,
+        pts: PTS,
+        vb: VB,
+        text: link.textContent,
+        fontPx: parseFloat(getComputedStyle(link).fontSize),
+        thickPx: parseFloat(getComputedStyle(img).getPropertyValue('--thick')) * innerHeight / 100,
+        clickX: e.clientX || innerWidth / 2,
+        clickY: e.clientY || innerHeight / 2,
+        onFirstFrame: function () { img.style.visibility = 'hidden'; }
+      });
+    });
+  } else {
+    broken = Promise.reject();
+  }
+  // fallback (no WebGL / CDN down / reduced motion): just fade the glyph out
+  broken = broken.catch(function () {
+    img.classList.add('fadeout');
+    return new Promise(function (r) { setTimeout(r, 700); });
+  });
+
+  Promise.all([broken, bgDone]).then(function () {
+    // wait for the last specks of dust to fade
+    (function wait() {
+      if (parts.length) requestAnimationFrame(wait);
+      else location.href = href;
+    })();
+  });
+}
+
+// coming back with the browser's back button: start fresh
+addEventListener('pageshow', function (e) { if (e.persisted) location.reload(); });
