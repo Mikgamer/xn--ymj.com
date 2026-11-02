@@ -153,9 +153,22 @@ function textCanvas(withFace) {
   x.font = (FONT_VH / SIZE_VH * T) + 'px monospace';
   x.textAlign = 'center';
   x.textBaseline = 'middle';
+  x.save();
   x.translate(T / 2, T / 2);
   x.rotate(-48 * Math.PI / 180);
   x.fillText(TEXT, 0, 0);
+  x.restore();
+  if (!withFace) {
+    // keep the text only where the glyph is, so nothing hangs off its edges
+    x.globalCompositeOperation = 'destination-in';
+    x.beginPath();
+    PTS.forEach(function (p, i) {
+      var px = p[0] / VB * T, py = p[1] / VB * T;
+      if (i) x.lineTo(px, py); else x.moveTo(px, py);
+    });
+    x.closePath();
+    x.fill();
+  }
   var tex = new THREE.CanvasTexture(c);
   tex.colorSpace = THREE.SRGBColorSpace;
   tex.anisotropy = 4;
@@ -163,8 +176,8 @@ function textCanvas(withFace) {
 }
 var textMat = new THREE.MeshBasicMaterial({ map: textCanvas(false), transparent: true, opacity: 0, depthWrite: false });
 var textMesh = new THREE.Mesh(new THREE.PlaneGeometry(1, 1), textMat);
-textMesh.renderOrder = 5;
-textMesh.position.z = 0.5;
+textMesh.renderOrder = 0;
+textMesh.position.z = 1;
 mid.group.add(textMesh);
 
 function resize() {
