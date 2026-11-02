@@ -1,6 +1,7 @@
-/* Animatable float offsets (needed to animate x and y on separate timelines) */
-@property --fx { syntax: '<length>'; inherits: false; initial-value: 0px; }
-@property --fy { syntax: '<length>'; inherits: false; initial-value: 0px; }
+/* Float: --fx/--fy run between -1 and 1, --amp scales them (0 at rest) */
+@property --fx  { syntax: '<number>'; inherits: false; initial-value: 0; }
+@property --fy  { syntax: '<number>'; inherits: false; initial-value: 0; }
+@property --amp { syntax: '<length>'; inherits: true;  initial-value: 0px; }
 
 body{
 	background:black;
@@ -14,74 +15,75 @@ body{
 }
 
 #img{
-	/* layer spread: diagonal step + depth between layers */
-	--step:0px;
-	--depth:10px;
+	--step:0px;     /* diagonal offset between layers (original effect) */
+	--depth:0px;    /* depth between layers (thickness) */
+	--amp:0px;      /* float amplitude */
 	position:relative;
 	height:50vh;
 	aspect-ratio:1;
 	cursor:help;
+	transform-style:preserve-3d;
+	transform:rotateX(var(--rx, 0deg)) rotateY(var(--ry, 0deg));
+	transition:--amp 1s ease;
+}
+
+.layer{
+	--i:0;          /* 2 = back/top-right ... -2 = front/bottom-left */
+	--turn:0deg;
+	position:absolute;
+	inset:0;
 	display:flex;
 	align-items:center;
 	justify-content:center;
-	transform-style:preserve-3d;
-	transform:rotateX(var(--rx, 0deg)) rotateY(var(--ry, 0deg));
+	/* diagonal spread */
+	translate:calc(var(--i) * var(--step)) calc(var(--i) * var(--step) * -1);
+	/* thickness + rotation */
+	transform:translateZ(calc(var(--i) * var(--depth) * -1)) rotate(var(--turn));
+	/* leaving hover: collapse thickness first, then slide back */
+	transition:
+		translate .5s ease .35s,
+		transform .5s ease;
 }
 
-#img img{
-	--i:0;          /* layer index, -2 (front) .. 2 (back) */
-	--flip:0deg;
-	--turn:0deg;
+.layer:nth-child(1){ --i:2; }
+.layer:nth-child(2){ --i:1; }
+.layer:nth-child(4){ --i:-1; }
+.layer:nth-child(5){ --i:-2; }
+
+.layer img{
 	position:absolute;
 	inset:0;
 	width:100%;
 	height:100%;
 	filter:drop-shadow(1px 1px 4px black);
-	transition:
-		transform 1.2s cubic-bezier(.2,.8,.2,1),
-		opacity 1s ease;
-	/* same function list in every state so the 3D flip interpolates properly */
-	transform:
-		translate3d(
-			calc(var(--i) * var(--step)),
-			calc(var(--i) * var(--step) * -1),
-			calc(var(--i) * var(--depth) * -1))
-		rotateY(var(--flip))
-		rotateZ(var(--turn));
+	transition:opacity 1s;
 }
 
 /* Side layers: soft infinity (figure-8) float.
-   x and y run on separate timelines, y at twice the frequency and a quarter
-   cycle out of phase, which traces a lemniscate. */
-#img img:not(:nth-child(3)){
-	--ax:1vh;
-	--ay:.5vh;
-	opacity:.45;
-	translate:var(--fx) var(--fy);
+   y runs at twice the frequency of x, a quarter cycle out of phase. */
+.layer:not(.mid) img{
+	--k:1;
+	translate:
+		calc(var(--fx) * var(--amp) * var(--k))
+		calc(var(--fy) * var(--amp) * var(--k) * .5);
 	animation:
 		float-x 4s cubic-bezier(.37,0,.63,1) var(--d) infinite alternate,
 		float-y 2s cubic-bezier(.37,0,.63,1) calc(var(--d) - 1s) infinite alternate;
 }
+@keyframes float-x{ from{ --fx:-1; } to{ --fx:1; } }
+@keyframes float-y{ from{ --fy:-1; } to{ --fy:1; } }
 
-@keyframes float-x{
-	from{ --fx:calc(var(--ax) * -1); }
-	to  { --fx:var(--ax); }
-}
-@keyframes float-y{
-	from{ --fy:calc(var(--ay) * -1); }
-	to  { --fy:var(--ay); }
-}
+.layer:nth-child(1) img{ --d:-1.6s; --k:1.6; }
+.layer:nth-child(2) img{ --d:-.8s; }
+.layer:nth-child(4) img{ --d:-2.4s; }
+.layer:nth-child(5) img{ --d:-3.2s; --k:1.6; }
 
-#img img:nth-child(1){ --i:2;  --d:-1.6s; --ax:1.6vh; --ay:.8vh; opacity:.25; }
-#img img:nth-child(2){ --i:1;  --d:-.8s; }
-#img img:nth-child(4){ --i:-1; --d:-2.4s; }
-#img img:nth-child(5){ --i:-2; --d:-3.2s; --ax:1.6vh; --ay:.8vh; opacity:.25; }
-
-#img a{
-	--turn:-48deg;
+/* Text is glued to the middle layer, so it moves with it */
+.mid a{
+	position:relative;
 	display:block;
-	transition:transform 1s ease, opacity 1s ease;
-	transform:translateZ(2px) rotateZ(var(--turn));
+	transform:translateZ(1px) rotate(-48deg);
+	transition:opacity 1s;
 	color:black;
 	text-decoration:none;
 	font-size:5vh;
@@ -91,40 +93,41 @@ body{
 	pointer-events:none;
 }
 
-/* Hover: fan the layers out in depth */
+/* Hover: fan out diagonally (like the original), then expand into thickness */
 #img:not(.click):hover{
 	--step:10px;
-	--depth:45px;
+	--depth:40px;
+	--amp:1vh;
+}
+#img:not(.click):hover .layer{
+	transition:
+		translate .5s ease,
+		transform .6s cubic-bezier(.2,.8,.2,1) .35s;
 }
 #img:not(.click):hover img{ opacity:.7; }
 
-/* Click (one-way): side layers fly off through the depth axis,
-   middle layer flips in 3D and settles on its diagonal */
+/* Click (one-way): side layers slide off and fade, middle turns, text appears */
 #img.click{
-	--step:60px;
-	--depth:400px;
+	--step:50px;
+	--depth:40px;
 	cursor:default;
 }
-
-#img.click img{ opacity:0; }
-
-#img.click img:nth-child(3){
-	--flip:360deg;
-	--turn:48deg;
-	opacity:1;
-	transition:
-		transform 1.6s cubic-bezier(.6,0,.2,1) .2s,
-		opacity 1s ease;
+#img.click .layer{
+	transition:translate 1s, transform 1s;
 }
+#img.click .layer:not(.mid) img{ opacity:0; }
 
-#img.click a{
-	--turn:0deg;
+#img.click .mid{
+	--turn:48deg;
+	transition:translate 1s, transform 1s .3s;
+}
+#img.click .mid a{
 	pointer-events:all;
-	transition-delay:1.2s;
-	opacity:1;
 	cursor:pointer;
+	transition-delay:.3s;
+	opacity:1;
 }
 
 @media (prefers-reduced-motion: reduce){
-	#img img{ animation:none !important; }
+	.layer img{ animation:none !important; }
 }
