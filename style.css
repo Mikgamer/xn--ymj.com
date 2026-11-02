@@ -12,6 +12,8 @@ body{
 #img{
 	--step:0px;     /* diagonal offset between layers (original effect) */
 	--depth:0px;    /* depth between layers */
+	--slice:0px;    /* gap between extrusion slices: 0 = flat, >0 = thick */
+	--solid:0;      /* opacity of the thickness + solid face */
 	position:relative;
 	height:50vh;
 	aspect-ratio:1;
@@ -51,12 +53,21 @@ body{
 	inset:0;
 	width:100%;
 	height:100%;
-	transition:opacity 1s;
 }
 
-/* Extrusion slices (added by script.js, pre-shaded grey SVG, no filters) */
+/* Flat face: opaque at rest, see-through while fanning out */
+.layer img.face{
+	transition:opacity .3s ease .35s;
+}
+
+/* Solid face (opaque copy on top) + extrusion slices, all added by script.js */
+.layer img.solid,
 .layer img.slice{
-	transform:translateZ(var(--z));
+	opacity:var(--solid);
+	transition:opacity .4s ease, transform .5s ease;
+}
+.layer img.slice{
+	transform:translateZ(calc(var(--n) * var(--slice) * -1));
 }
 
 /* Text is glued to the middle layer's front face, so it moves with it */
@@ -74,21 +85,36 @@ body{
 	pointer-events:none;
 }
 
-/* Hover: fan out diagonally (like the original), then spread in depth */
+/* Hover, step 1: fan out diagonally, flat and see-through (like the original)
+   Hover, step 2: gain thickness + opacity, spread in depth */
 #img:not(.click):hover{
 	--step:15px;
 	--depth:70px;
+	--slice:2.5px;
+	--solid:1;
 }
 #img:not(.click):hover .layer{
 	transition:
 		translate .5s ease,
-		transform .6s cubic-bezier(.2,.8,.2,1) .35s;
+		transform .7s cubic-bezier(.2,.8,.2,1) .45s;
+}
+#img:not(.click):hover img.face{
+	opacity:.7;
+	transition:opacity .3s ease;
+}
+#img:not(.click):hover img.solid,
+#img:not(.click):hover img.slice{
+	transition:
+		opacity .5s ease .45s,
+		transform .7s cubic-bezier(.2,.8,.2,1) .45s;
 }
 
 /* Click (one-way): front and back slide off and fade, middle turns, text appears */
 #img.click{
 	--step:100px;
 	--depth:70px;
+	--slice:2.5px;
+	--solid:1;
 	cursor:default;
 	/* everything moves only once opened */
 	animation:sway 14s ease-in-out 1.3s infinite alternate;
@@ -102,7 +128,10 @@ body{
 	transition:translate 1s, transform 1s;
 }
 #img.click .back img,
-#img.click .front img{ opacity:0; }
+#img.click .front img{
+	opacity:0;
+	transition:opacity 1s, transform .5s;
+}
 
 /* Soft infinity (figure-8): x on .mid, y on .float at twice the frequency.
    Both start from the centre and only animate `translate` (GPU-friendly). */
