@@ -116,16 +116,31 @@ var shape = new THREE.Shape(PTS.map(function (p) { return new THREE.Vector2(p[0]
 var glyphGeo = new THREE.ExtrudeGeometry(shape, { depth: 1, bevelEnabled: false });
 glyphGeo.translate(-0.5, -0.5, -1);
 
-function makeLayer(i) {
+// The middle layer is always opaque. The back/front layers fade, so each one
+// first writes its depth only (prepass), then its colour: only the surface
+// nearest the viewer gets blended, and the solid fades as one piece instead of
+// showing its own back walls through the front.
+var depthOnly = new THREE.MeshBasicMaterial({ colorWrite: false, transparent: true });
+
+function makeLayer(i, order) {
+  var fades = i !== 0;
   var group = new THREE.Group();
-  var face = new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true });
-  var side = new THREE.MeshLambertMaterial({ color: 0x808080, transparent: true });
+  var face = new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: fades });
+  var side = new THREE.MeshLambertMaterial({ color: 0x808080, transparent: fades });
   var mesh = new THREE.Mesh(glyphGeo, [face, side]);   // group 0 = faces, 1 = walls
+  var prepass = null;
+  if (fades) {
+    prepass = new THREE.Mesh(glyphGeo, depthOnly);
+    prepass.renderOrder = order;
+    mesh.renderOrder = order + 1;
+    group.add(prepass);
+  }
   group.add(mesh);
   stage.add(group);
-  return { i: i, group: group, mesh: mesh, face: face, side: side };
+  return { i: i, group: group, mesh: mesh, prepass: prepass, face: face, side: side };
 }
-var back = makeLayer(1), mid = makeLayer(0), front = makeLayer(-1);
+// transparent layers are drawn back to front: back (behind the middle), then front
+var back = makeLayer(1, 1), mid = makeLayer(0, 0), front = makeLayer(-1, 3);
 var layers = [back, mid, front];
 
 // text on the middle layer: rotated -48° so it reads level once the layer turns 48°
@@ -148,6 +163,7 @@ function textCanvas(withFace) {
 }
 var textMat = new THREE.MeshBasicMaterial({ map: textCanvas(false), transparent: true, opacity: 0, depthWrite: false });
 var textMesh = new THREE.Mesh(new THREE.PlaneGeometry(1, 1), textMat);
+textMesh.renderOrder = 5;
 textMesh.position.z = 0.5;
 mid.group.add(textMesh);
 
@@ -186,7 +202,8 @@ function applyLayers() {
     L.group.position.set(L.i * step, L.i * step, -L.i * depth - L.i * 0.5);
     var k = isMid ? P.midK.v : P.sideK.v;
     var op = isMid ? 1 : P.sideOp.v;
-    L.mesh.scale.set(size, size, Math.max(k, 0.002) * thick);
+    L.mesh.scale.set(size, size, Math.max(k, 0.01) * thick);
+    if (L.prepass) L.prepass.scale.copy(L.mesh.scale);
     L.face.opacity = L.side.opacity = op;
     if (!isMid) L.group.visible = showSides && op > 0.001;
   });
