@@ -24,7 +24,7 @@ body{
 	transform:rotateX(6deg) rotateY(-12deg);
 }
 
-.layer, .float{
+.layer{
 	position:absolute;
 	inset:0;
 	display:flex;
@@ -156,27 +156,9 @@ body{
 	transition:opacity 1s;
 }
 
-/* Soft infinity (figure-8): x on .mid, y on .float at twice the frequency.
-   Both start from the centre and only animate `translate` (GPU-friendly). */
 #img.click .mid{
 	--turn:48deg;
 	transition:transform 1s .3s;
-	animation:float-x 8s linear 1.3s infinite;
-}
-#img.click .float{
-	animation:float-y 4s linear 1.3s infinite;
-}
-@keyframes float-x{
-	0%  { translate:0 0;       animation-timing-function:cubic-bezier(.61,1,.88,1); }
-	25% { translate:1.2vh 0;   animation-timing-function:cubic-bezier(.37,0,.63,1); }
-	75% { translate:-1.2vh 0;  animation-timing-function:cubic-bezier(.12,0,.39,0); }
-	100%{ translate:0 0; }
-}
-@keyframes float-y{
-	0%  { translate:0 0;       animation-timing-function:cubic-bezier(.61,1,.88,1); }
-	25% { translate:0 .6vh;    animation-timing-function:cubic-bezier(.37,0,.63,1); }
-	75% { translate:0 -.6vh;   animation-timing-function:cubic-bezier(.12,0,.39,0); }
-	100%{ translate:0 0; }
 }
 
 #img.click .mid a{
@@ -187,5 +169,23 @@ body{
 }
 
 @media (prefers-reduced-motion: reduce){
-	#img.click, #img.click .mid, #img.click .float{ animation:none; }
+	#img.click{ animation:none; }
+}
+
+/* Particle canvas (script.js) — on top, but never catches clicks */
+#dust{
+	position:fixed;
+	inset:0;
+	width:100%;
+	height:100%;
+	pointer-events:none;
+	z-index:1;
+}
+
+/* Screen-position markers on each face (script.js) */
+.anchor{
+	position:absolute;
+	width:1px;
+	height:1px;
+	pointer-events:none;
 }
