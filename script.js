@@ -116,7 +116,7 @@ var MAX = 300;
 var RATE_HOVER = 40;   // particles per second while hovered (all layers)
 var RATE_OPEN = 60;    // particles per second once opened
 var VACUUM = 60000;    // pull strength of the cursor
-var SWALLOW = 35;      // px: particles vanish inside this radius of the cursor
+var SWALLOW = 35;      // px: particles start fading out inside this radius of the cursor
 var GEO_MS = 100;      // how often to re-measure where the faces are
 var parts = [], acc = 0, emitting = false, running = false, last = 0;
 var geo = [], geoAt = -1e9;
@@ -155,7 +155,8 @@ function spawn(g) {
     vy: dy / d * speed + Math.sin(a) * 10 - 12,
     age: 0,
     life: 1.4 + Math.random() * 1.8,
-    size: 2 + Math.random() * 3      // px, drawn diameter
+    size: 2 + Math.random() * 3,     // px, drawn diameter
+    fade: -1, fadeDur: 0             // absorb fade, starts inside the cursor radius
   });
 }
 
@@ -188,17 +189,30 @@ function frame(t) {
   var n = 0;
   for (var i = 0; i < parts.length; i++) {
     var p = parts[i];
+    var inside = false;
     if (vacuum) {
-      var mx = mouse.x - p.x, my = mouse.y - p.y, md = Math.hypot(mx, my);
-      if (md < SWALLOW) continue;                              // swallowed
+      var mx = mouse.x - p.x, my = mouse.y - p.y, md = Math.hypot(mx, my) || 0.001;
+      inside = md < SWALLOW;
+      // entering the radius starts the fade; faster particles fade quicker
+      if (inside && p.fade < 0) {
+        var sp = Math.hypot(p.vx, p.vy);
+        p.fade = 0;
+        p.fadeDur = Math.min(0.7, Math.max(0.15, 70 / (sp + 1)));
+      }
       var f = VACUUM / (md + 60) * dt;                         // stronger when closer
       p.vx += mx / md * f;
       p.vy += my / md * f;
       if (md < 260) p.age -= dt * 0.6;                         // live long enough to arrive
     }
-    p.vx *= damp; p.vy *= damp;
+    // extra drag inside the radius so they spiral in instead of overshooting
+    var d2 = inside ? Math.exp(-5 * dt) : damp;
+    p.vx *= d2; p.vy *= d2;
     p.x += p.vx * dt; p.y += p.vy * dt;
     p.age += dt;
+    if (p.fade >= 0) {
+      p.fade += dt;
+      if (p.fade >= p.fadeDur) continue;                       // fully absorbed
+    }
     if (p.age < p.life) parts[n++] = p;
   }
   parts.length = n;
@@ -208,8 +222,15 @@ function frame(t) {
   var x0 = 1e9, y0 = 1e9, x1 = -1e9, y1 = -1e9;
   for (var j = 0; j < n; j++) {
     var q = parts[j], k = 1 - q.age / q.life;
-    var s = q.size, h = s / 2;
-    ctx.globalAlpha = Math.max(0, Math.min(1, k * 1.5)) * 0.9;
+    var a = Math.max(0, Math.min(1, k * 1.5)) * 0.9;
+    var s = q.size;
+    if (q.fade >= 0) {                                         // being absorbed
+      var r = 1 - q.fade / q.fadeDur;
+      a *= r * r;                                              // ease out
+      s *= 0.35 + 0.65 * r;                                    // shrink a little
+    }
+    var h = s / 2;
+    ctx.globalAlpha = a;
     ctx.drawImage(dot, q.x - h, q.y - h, s, s);
     if (q.x < x0) x0 = q.x; if (q.x > x1) x1 = q.x;
     if (q.y < y0) y0 = q.y; if (q.y > y1) y1 = q.y;
