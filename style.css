@@ -1,92 +1,130 @@
+/* Animatable float offsets (needed to animate x and y on separate timelines) */
+@property --fx { syntax: '<length>'; inherits: false; initial-value: 0px; }
+@property --fy { syntax: '<length>'; inherits: false; initial-value: 0px; }
+
 body{
 	background:black;
 	margin:0;padding:0;
 	height:100vh;width:100%;
+	overflow:hidden;
 	display:flex;
-	align-content:center;
 	align-items:center;
-    justify-content: center;
+	justify-content:center;
+	perspective:1200px;
 }
+
 #img{
+	/* layer spread: diagonal step + depth between layers */
+	--step:0px;
+	--depth:10px;
 	position:relative;
-	transition:.5s;
 	height:50vh;
+	aspect-ratio:1;
 	cursor:help;
 	display:flex;
-	align-content:center;
 	align-items:center;
-    justify-content: center;
+	justify-content:center;
+	transform-style:preserve-3d;
+	transform:rotateX(var(--rx, 0deg)) rotateY(var(--ry, 0deg));
 }
 
 #img img{
-	transition:1s;
-	filter: drop-shadow(1px 1px 4px black);
+	--i:0;          /* layer index, -2 (front) .. 2 (back) */
+	--flip:0deg;
+	--turn:0deg;
+	position:absolute;
+	inset:0;
+	width:100%;
 	height:100%;
-	position: absolute;
+	filter:drop-shadow(1px 1px 4px black);
+	transition:
+		transform 1.2s cubic-bezier(.2,.8,.2,1),
+		opacity 1s ease;
+	/* same function list in every state so the 3D flip interpolates properly */
+	transform:
+		translate3d(
+			calc(var(--i) * var(--step)),
+			calc(var(--i) * var(--step) * -1),
+			calc(var(--i) * var(--depth) * -1))
+		rotateY(var(--flip))
+		rotateZ(var(--turn));
 }
+
+/* Side layers: soft infinity (figure-8) float.
+   x and y run on separate timelines, y at twice the frequency and a quarter
+   cycle out of phase, which traces a lemniscate. */
+#img img:not(:nth-child(3)){
+	--ax:1vh;
+	--ay:.5vh;
+	opacity:.45;
+	translate:var(--fx) var(--fy);
+	animation:
+		float-x 4s cubic-bezier(.37,0,.63,1) var(--d) infinite alternate,
+		float-y 2s cubic-bezier(.37,0,.63,1) calc(var(--d) - 1s) infinite alternate;
+}
+
+@keyframes float-x{
+	from{ --fx:calc(var(--ax) * -1); }
+	to  { --fx:var(--ax); }
+}
+@keyframes float-y{
+	from{ --fy:calc(var(--ay) * -1); }
+	to  { --fy:var(--ay); }
+}
+
+#img img:nth-child(1){ --i:2;  --d:-1.6s; --ax:1.6vh; --ay:.8vh; opacity:.25; }
+#img img:nth-child(2){ --i:1;  --d:-.8s; }
+#img img:nth-child(4){ --i:-1; --d:-2.4s; }
+#img img:nth-child(5){ --i:-2; --d:-3.2s; --ax:1.6vh; --ay:.8vh; opacity:.25; }
 
 #img a{
-	transform: rotate(-48deg);
-	display: block;
-	transition:1s;
-	z-index: 1;
-    color: black;
-    text-decoration: none;
-    font-size: 5vh;
-    font-family: monospace;
-    opacity:0;
-    user-select: none;
-    pointer-events: none;
-}
-
-#img:hover img{opacity:0.7;}
-
-#img:hover :nth-child(1){
-	transform: translate(20px, -20px);
-}
-
-#img:hover :nth-child(2){
-	transform: translate(10px, -10px);
-}
-
-#img:hover :nth-child(4){
-	transform: translate(-10px, 10px);
-}
-
-#img:hover :nth-child(5){
-	transform: translate(-20px, 20px);
-}
-
-#img.click img{opacity:1;}
-
-#img.click :nth-child(1){
-	transform: translate(100px, -100px);
+	--turn:-48deg;
+	display:block;
+	transition:transform 1s ease, opacity 1s ease;
+	transform:translateZ(2px) rotateZ(var(--turn));
+	color:black;
+	text-decoration:none;
+	font-size:5vh;
+	font-family:monospace;
 	opacity:0;
+	user-select:none;
+	pointer-events:none;
 }
 
-#img.click :nth-child(2){
-	transform: translate(50px, -50px);
-	opacity:0;
+/* Hover: fan the layers out in depth */
+#img:not(.click):hover{
+	--step:10px;
+	--depth:45px;
+}
+#img:not(.click):hover img{ opacity:.7; }
+
+/* Click (one-way): side layers fly off through the depth axis,
+   middle layer flips in 3D and settles on its diagonal */
+#img.click{
+	--step:60px;
+	--depth:400px;
+	cursor:default;
 }
 
-#img.click :nth-child(3){
-	transform: rotate(48deg);
-	transition-delay: .3s;
-}
+#img.click img{ opacity:0; }
 
-#img.click :nth-child(4){
-	transform: translate(-50px, 50px);
-	opacity:0;
-}
-
-#img.click :nth-child(5){
-	transform: translate(-100px, 100px);
-	opacity:0;
+#img.click img:nth-child(3){
+	--flip:360deg;
+	--turn:48deg;
+	opacity:1;
+	transition:
+		transform 1.6s cubic-bezier(.6,0,.2,1) .2s,
+		opacity 1s ease;
 }
 
 #img.click a{
-	pointer-events: all;
-	transition-delay: 0.3s;
-	transform: none;
-    opacity: 1;
+	--turn:0deg;
+	pointer-events:all;
+	transition-delay:1.2s;
+	opacity:1;
+	cursor:pointer;
+}
+
+@media (prefers-reduced-motion: reduce){
+	#img img{ animation:none !important; }
 }
